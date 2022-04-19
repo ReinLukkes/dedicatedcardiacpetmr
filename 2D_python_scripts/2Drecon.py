@@ -35,38 +35,28 @@ if __name__ == "__main__":
     
     # define angles
     nr_angles = 180
-    angles = np.arange(-90,90,180/nr_angles)
+    angles = np.arange(0, 180, 180/nr_angles)
     
     # define cardiac detector
-    detector_size = 2   #size in pixels of single detector cell
-    detector_num = 25   #number of detector cells
-    detector_heigt = 40
+    detector_size = 1   #size in pixels of single detector cell
+    detector_num = 60   #number of detector cells
+    detector_height = 10
 
     
     
     # Import image
     real0 = imread("brain.png")[:,:,0]
     
-    trace_result = np.zeros(nr_angles)
-        
+    # ------------------------------
+    measured0 = raytrace2D.ForwardProjection(angles, real0, detector_num, detector_size, detector_height)
     
-    for i, angle in enumerate(np.deg2rad(angles)):
-        trace_result[i] = raytrace2D.RayTracing(
-            angle, 
-            real0, 
-            real0.shape[0]//2, 
-            detector_heigt)
-        
-        
-    print(trace_result)
-    
-    
+   
 
     # Simulate measurement
     # This is done by makeing a forward projection and then adding noise
 #    im_real = np.ones([N,N])
     # measured0 = radon(real0,theta=angles,circle=True)
-    measured0 = radonworkshop.radont(real0, detector_size, detector_num, detector_heigt, theta=angles, circle=True)
+    # measured0 = radonworkshop.radont(real0, detector_size, detector_num, detector_heigt, theta=angles, circle=True)
     measured0 = measured0/np.max(measured0)*100
     measured0 = np.random.poisson(measured0)
     
@@ -90,8 +80,8 @@ if __name__ == "__main__":
     
         # forward project guess volume
         # simulated0 = radon(guess0,theta=angles,circle=True)
-        simulated0 = radonworkshop.radont(guess0, detector_size, detector_num, detector_heigt,theta=angles,circle=True)
-        
+        # simulated0 = radonworkshop.radont(guess0, detector_size, detector_num, detector_heigt,theta=angles,circle=True)
+        simulated0 = raytrace2D.ForwardProjection(angles, guess0, detector_num, detector_size, detector_height)
         # prevent dividing by zero
         simulated0[simulated0 == 0] = small_nr
         
@@ -100,15 +90,28 @@ if __name__ == "__main__":
         
         # backproject to error volume
         # error_vol0 = iradon(error_sin0, theta=angles, output_size=N, filter=None, interpolation='linear', circle=True)
-        error_vol0 = radonworkshop.iradont(error_sin0, detector_size, detector_num, detector_heigt, theta=angles, output_size=N, filter_name=None, interpolation='linear', circle=True)
+        # error_vol0 = radonworkshop.iradont(error_sin0, detector_size, detector_num, detector_heigt, theta=angles, output_size=N, filter_name=None, interpolation='linear', circle=True)
+        error_vol0 = raytrace2D.BackProjection(error_sin0, angles, N, detector_num, detector_size, detector_height)
         
         # update guess volume
         guess0 = guess0*error_vol0
+        print(np.amax(guess0))
         
-        # normalize guess volume
+        
+        
+        hist = np.histogram(guess0)
+        print(hist)
+        
+        # normalize guess volume <---- this is wrong for the new implementation?
         guess0 = guess0/np.sum(guess0)*norm_sum0;
         
+        hist = np.histogram(guess0)
+        print(hist)
+        print(np.amax(guess0))
         
+        plt.figure()
+        plt.imshow(guess0, cmap='gray')
+        plt.show()
         
 
     recon0=guess0
