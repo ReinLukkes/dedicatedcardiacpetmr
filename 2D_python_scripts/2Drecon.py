@@ -13,6 +13,7 @@ from scipy.ndimage import shift,rotate
 
 from skimage.io import imread
 from skimage.transform import radon, rescale,iradon
+from skimage import exposure
 
 import radonworkshop
 import raytrace2D
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     iNrIterations = 10
     
     # define angles
-    nr_angles = 180
+    nr_angles = 360
     angles = np.arange(0, 180, 180/nr_angles)
     
     # define cardiac detector
@@ -95,19 +96,11 @@ if __name__ == "__main__":
         
         # update guess volume
         guess0 = guess0*error_vol0
-        print(np.amax(guess0))
-        
-        
-        
-        hist = np.histogram(guess0)
-        print(hist)
+
         
         # normalize guess volume <---- this is wrong for the new implementation?
         guess0 = guess0/np.sum(guess0)*norm_sum0;
-        
-        hist = np.histogram(guess0)
-        print(hist)
-        print(np.amax(guess0))
+
         
         plt.figure()
         plt.imshow(guess0, cmap='gray')
@@ -115,6 +108,13 @@ if __name__ == "__main__":
         
 
     recon0=guess0
+    
+    print(np.amax(recon0))
+    
+    # histogram equalisation
+    # img_cdf, bin_centers = exposure.cumulative_distribution(recon0)
+    # recon0 = np.interp(recon0, bin_centers, img_cdf)
+    
     
     # Show reconstructed image
     plt.figure()

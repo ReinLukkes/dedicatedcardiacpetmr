@@ -222,8 +222,9 @@ def inverseRayTracing(ThetaRay, AttenuationMap, i, j, value):
         #// length through the voxel
         l = (s_next-s_curr)
 
-        #// update the value of the pixel        
-        AttenuationMap[iy, ix] += value
+        #// update the value of the pixel  
+        if iy > 50:
+            AttenuationMap[iy, ix] += value
 
         #// update voxelcount and current position
         s_curr = s_next
