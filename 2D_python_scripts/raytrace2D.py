@@ -32,31 +32,33 @@ def ForwardProjection(angles, AttenuationMap, detector_num, detector_size, detec
                 AttenuationMap.shape[1]//2 - detector_num//2*detector_size + j*detector_size, 
                 detector_height)
     
-    plt.figure()
-    plt.imshow(trace_result, cmap='gray')
-    plt.show()
+    # plt.figure()
+    # plt.imshow(trace_result, cmap='gray')
+    # plt.show()
     
     return trace_result
     
 def BackProjection(sinogram, angles, output_size, detector_num, detector_size, detector_height):
     
     trace_result = np.zeros((output_size, output_size))
+    DensityMap = np.ones((output_size, output_size))
     
     for j in range(detector_num):
         
         for i, angle in enumerate(np.deg2rad(angles)):
-            trace_result = inverseRayTracing(
+            trace_result, DensityMap = inverseRayTracing(
                 angle, 
                 trace_result, 
                 trace_result.shape[1]//2 - detector_num//2*detector_size + j*detector_size, 
                 detector_height, 
-                sinogram[j, i])
+                sinogram[j, i], 
+                DensityMap)
     
     # plt.figure()
-    # plt.imshow(trace_result, cmap='gray')
+    # plt.imshow(DensityMap, cmap='gray')
     # plt.show()
     
-    return trace_result
+    return trace_result / DensityMap
     
     
 
@@ -151,7 +153,7 @@ def RayTracing(ThetaRay, AttenuationMap, i, j):
     # return np.exp(-LineIntegral) 
 
 
-def inverseRayTracing(ThetaRay, AttenuationMap, i, j, value):
+def inverseRayTracing(ThetaRay, AttenuationMap, i, j, value, DensityMap):
     # // Declare variables
     # double AttenuationCorrectionValue;			// voxel attenuation value ---> output value
     # int delta_ix;								// directional constants used in scan path
@@ -196,7 +198,7 @@ def inverseRayTracing(ThetaRay, AttenuationMap, i, j, value):
     #// prevent divisions inside inner loops, so pre-calculate
     inv_e_x = 1/e_x;
     inv_e_y = 1/e_y;
-
+    
     # print("Angle =", ThetaRay)
     #// compute line integral;
     while (ix > 0) and (iy > 0) and (ix < AttenuationMap.shape[1]-1) and (iy < AttenuationMap.shape[0]-1):
@@ -223,13 +225,15 @@ def inverseRayTracing(ThetaRay, AttenuationMap, i, j, value):
         l = (s_next-s_curr)
 
         #// update the value of the pixel  
-        if iy > 50:
-            AttenuationMap[iy, ix] += value
+        
+        AttenuationMap[iy, ix] += value
+        
+        # add value to density map
+        DensityMap[iy, ix] += .1
 
         #// update voxelcount and current position
         s_curr = s_next
 
     #// end of while loop for ray tracing
-        
 
-    return AttenuationMap 
+    return AttenuationMap, DensityMap
