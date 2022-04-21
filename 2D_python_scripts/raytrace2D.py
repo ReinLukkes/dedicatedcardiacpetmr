@@ -7,7 +7,7 @@ Created on Tue Apr 12 13:15:33 2022
 
 import numpy as np
 import matplotlib.pyplot as plt
-import time
+# import time
 # // Routine:          RayTracing
 # // Function:        performs ray tracing to determine attenuation in FOV (not in collimator)
 # // Input:                               double& ray tracing angle, double attenuationmap[], int&voxel indices

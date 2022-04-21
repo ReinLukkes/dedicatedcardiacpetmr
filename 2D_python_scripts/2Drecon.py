@@ -36,14 +36,14 @@ if __name__ == "__main__":
     iNrIterations = 10
     
     # define angles
-    nr_angles = 360
+    nr_angles = 120
     angles0 = np.arange(0, 180, 180/nr_angles)
     angles1 = np.arange(30, 150, 180/nr_angles)
     
     # define cardiac detector
-    detector_size = 1   #size in pixels of single detector cell
+    detector_size = 2   #size in pixels of single detector cell
     detector_num = 60   #number of detector cells
-    detector_height = 10
+    detector_height = 30
 
     
     
