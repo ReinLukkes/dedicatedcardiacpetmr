@@ -7,6 +7,7 @@ Created on Tue Apr 12 13:15:33 2022
 
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 # import time
 # // Routine:          RayTracing
 # // Function:        performs ray tracing to determine attenuation in FOV (not in collimator)
@@ -16,6 +17,59 @@ import matplotlib.pyplot as plt
 
 
 __all__ = ['RayTracing']
+
+def DetectorLine(radius, detector_num, detector_width, angle):
+    
+    detector_array = []
+    rad = math.radians(angle)
+    rad_step = math.radians(angle - 90)
+    
+    x0 = (np.cos(rad) * radius) - (np.sin(rad) * (detector_width/2))
+    y0 = (np.sin(rad) * radius) + (np.cos(rad) * (detector_width/2))
+    
+    detector_array.append( (int(np.round(x0)), int(np.round(y0))) )
+
+    detector_spacing = detector_width / detector_num
+    stepx = np.sin(rad_step) * detector_spacing
+    stepy = np.cos(rad_step) * detector_spacing
+
+
+    # returns an array of rounded integer tuples
+    for i in range(1, detector_num + 1):
+        detector_array.append( ( 
+            int(np.round(  
+                x0 + (stepx * i))), 
+            int(np.round(
+                y0 + (stepy * i))) 
+                ) )
+
+
+    return detector_array
+
+
+def ForwardProjection2(angles, AttenuationMap, detector_num, detector_width, radius):
+    
+    trace_result = np.zeros((detector_num, len(angles) ))
+    
+    
+    print(trace_result.shape[0])
+    
+    for i, angle in enumerate(np.deg2rad(angles)):
+        detector_array = DetectorLine(radius, detector_num, detector_width, angle)
+        for j in range(detector_num): 
+            (x,y) = detector_array[j]
+
+            trace_result[j, i] = RayTracing(
+                angle, 
+                AttenuationMap, 
+                x, y)
+    
+    
+    plt.figure()
+    plt.imshow(trace_result, cmap='gray')
+    plt.show()
+    
+    return trace_result
 
 def ForwardProjection(angles, AttenuationMap, detector_num, detector_size, detector_height):
     

@@ -8,6 +8,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 from scipy.ndimage import shift,rotate
 
@@ -27,8 +28,12 @@ if __name__ == "__main__":
     # Define small number to prevent dividing by zero in calculated error sinogram (see below)
     small_nr = 1e-15
     
+    
+    # Import image
+    real0 = imread("brain_small.png")[:,:,0]
+    
     # Size of image
-    N=256
+    N=real0.shape[0]
     guess0 = np.ones([N,N])
     guess1 = np.ones([N,N])
         
@@ -37,18 +42,27 @@ if __name__ == "__main__":
     
     # define angles
     nr_angles = 120
-    angles0 = np.arange(0, 180, 180/nr_angles)
+    angles0 = np.arange(0, 360, 360/nr_angles)
     angles1 = np.arange(30, 150, 180/nr_angles)
+    
+    # define scanner
+    scanner_radius = 200
+    circle_array = []
     
     # define cardiac detector
     detector_size = 2   #size in pixels of single detector cell
     detector_num = 60   #number of detector cells
     detector_height = 30
-
+    detector_width = 120
+    
+    # ------------------------------
     
     
-    # Import image
-    real0 = imread("brain.png")[:,:,0]
+    
+    measured2 = raytrace2D.ForwardProjection2(angles0, real0, detector_num, detector_width, scanner_radius)
+    measured2 = measured2/np.max(measured2)*100
+    measured2 = np.random.poisson(measured2)
+    
     
     # ------------------------------
     measured1 = raytrace2D.ForwardProjection(angles1, real0, detector_num, detector_size, detector_height)
@@ -65,9 +79,9 @@ if __name__ == "__main__":
     measured0 = np.random.poisson(measured0)
     
     # # Show real imaged 
-    # plt.figure()
-    # plt.imshow(measured0,cmap='gray')
-    # plt.show()
+    plt.figure()
+    plt.imshow(measured0,cmap='gray')
+    plt.show()
     
     
     # Calculate normalization
@@ -82,6 +96,8 @@ if __name__ == "__main__":
     
         # forward project guess volume
         simulated0 = radon(guess0,theta=angles0,circle=True)
+        
+        # simulated2 = raytrace2D.ForwardProjection2(angles0, guess0, detector_num, detector_width, scanner_radius)
         # simulated0 = radonworkshop.radont(guess0, detector_size, detector_num, detector_heigt,theta=angles,circle=True)
         simulated1 = raytrace2D.ForwardProjection(angles1, guess1, detector_num, detector_size, detector_height)
         # prevent dividing by zero
