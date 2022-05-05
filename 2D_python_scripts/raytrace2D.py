@@ -18,20 +18,20 @@ import math
 
 __all__ = ['RayTracing']
 
-def DetectorLine(radius, detector_num, detector_width, angle):
+def DetectorLine(radius, detector_num, detector_width, angle, image_size):
     
     detector_array = []
-    rad = math.radians(angle)
-    rad_step = math.radians(angle - 90)
+    rad_step = angle - math.pi/2
+    center = image_size//2
     
-    x0 = (np.cos(rad) * radius) - (np.sin(rad) * (detector_width/2))
-    y0 = (np.sin(rad) * radius) + (np.cos(rad) * (detector_width/2))
+    x0 = center + (np.cos(angle) * radius) - (np.sin(angle) * (detector_width/2))
+    y0 = center + (np.sin(angle) * radius) + (np.cos(angle) * (detector_width/2))
     
     detector_array.append( (int(np.round(x0)), int(np.round(y0))) )
 
     detector_spacing = detector_width / detector_num
-    stepx = np.sin(rad_step) * detector_spacing
-    stepy = np.cos(rad_step) * detector_spacing
+    stepx = np.cos(rad_step) * detector_spacing
+    stepy = np.sin(rad_step) * detector_spacing
 
 
     # returns an array of rounded integer tuples
@@ -46,6 +46,26 @@ def DetectorLine(radius, detector_num, detector_width, angle):
 
     return detector_array
 
+def DetectorLineTester(angles, AttenuationMap, detector_num, detector_width, radius, center):
+    
+    trace_result = np.zeros((detector_num, len(angles) ))
+    
+    
+    print(trace_result.shape[0])
+    
+    for i, angle in enumerate(np.deg2rad(angles)):
+        detector_array = DetectorLine(radius, detector_num, detector_width, -angle, center)
+        print(len(detector_array))
+        for j in range(detector_num): 
+            (x,y) = detector_array[j]
+
+            AttenuationMap[x, y] += 100
+            
+    
+    plt.figure()
+    plt.imshow(AttenuationMap, cmap='gray')
+    plt.show()
+
 
 def ForwardProjection2(angles, AttenuationMap, detector_num, detector_width, radius):
     
@@ -55,7 +75,11 @@ def ForwardProjection2(angles, AttenuationMap, detector_num, detector_width, rad
     print(trace_result.shape[0])
     
     for i, angle in enumerate(np.deg2rad(angles)):
-        detector_array = DetectorLine(radius, detector_num, detector_width, angle)
+        detector_array = DetectorLine(radius, detector_num, detector_width, angle + math.pi, AttenuationMap.shape[0])
+        
+        # print(angle)
+        # print(detector_array)
+        
         for j in range(detector_num): 
             (x,y) = detector_array[j]
 
@@ -63,13 +87,37 @@ def ForwardProjection2(angles, AttenuationMap, detector_num, detector_width, rad
                 angle, 
                 AttenuationMap, 
                 x, y)
-    
-    
-    plt.figure()
-    plt.imshow(trace_result, cmap='gray')
-    plt.show()
-    
+            
+            
+            # plt.figure()
+            # plt.imshow(trace_result, cmap='gray')
+            # plt.show()
+
     return trace_result
+
+def BackProjection2(sinogram, angles, output_size, detector_num, detector_size, detector_width, radius):
+    
+    trace_result = np.zeros((output_size, output_size))
+    DensityMap = np.ones((output_size, output_size))
+    
+    for i, angle in enumerate(np.deg2rad(angles)):
+        detector_array = DetectorLine(radius, detector_num, detector_width, angle + math.pi, output_size)
+        
+        for j in range(detector_num):
+            (x,y) = detector_array[j]
+            
+            trace_result, DensityMap = inverseRayTracing(
+                angle, 
+                trace_result, 
+                x, y, 
+                sinogram[j, i], 
+                DensityMap)
+    
+    # plt.figure()
+    # plt.imshow(DensityMap, cmap='gray')
+    # plt.show()
+    
+    return trace_result / DensityMap
 
 def ForwardProjection(angles, AttenuationMap, detector_num, detector_size, detector_height):
     
@@ -112,9 +160,8 @@ def BackProjection(sinogram, angles, output_size, detector_num, detector_size, d
     # plt.imshow(DensityMap, cmap='gray')
     # plt.show()
     
-    return trace_result / DensityMap
-    
-    
+    return trace_result / DensityMap    
+
 
 def RayTracing(ThetaRay, AttenuationMap, i, j):
     # // Declare variables
