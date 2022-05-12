@@ -58,7 +58,7 @@ def mlemStep(guess, measured, norm_sum, detector):
     # update guess volume
     guess = guess*error_vol
     # normalize guess volume
-    guess = guess/np.sum(guess)*norm_sum
+    guess = guess/np.max(guess)*norm_sum
     
     plt.figure()
     plt.imshow(guess, cmap='gray')
@@ -66,7 +66,7 @@ def mlemStep(guess, measured, norm_sum, detector):
     
     return guess
     
-def mlemStepC(guess, measured1, measured2, norm_sum, detector1, detector2):
+def mlemStepC(guess, measured1, measured2, norm_sum1, norm_sum2, detector1, detector2):
     # forward project guess volume
     simulated1 = detector1.sfp(guess)
     simulated2 = detector2.sfp(guess)
@@ -77,30 +77,31 @@ def mlemStepC(guess, measured1, measured2, norm_sum, detector1, detector2):
     error_sin1 = measured1/simulated1
     error_sin2 = measured2/simulated2
     # backproject to error volume
-    error_vol = detector1.sbp(error_sin1, N)
+    error_vol = detector2.sbp(error_sin2, N)
     
-    fig = plt.figure()
-    fig.suptitle('1')
-    plt.imshow(error_vol, cmap='gray')
-    plt.show()
-    
-    error_vol += detector2.sbp(error_sin2, N)
+    # fig = plt.figure()
+    # fig.suptitle('1')
+    # plt.imshow(error_vol, cmap='gray')
+    # plt.show()
+    print(norm_sum1)
+    print(norm_sum2)
+    error_vol += detector1.sbp(error_sin1, N)*norm_sum1/norm_sum2
 
-    fig = plt.figure()
-    fig.suptitle('2')
-    plt.imshow(error_vol, cmap='gray')
-    plt.show()
+    # fig = plt.figure()
+    # fig.suptitle('2')
+    # plt.imshow(error_vol, cmap='gray')
+    # plt.show()
     
     # update guess volume
     guess = guess*error_vol
 
-    fig = plt.figure()
-    fig.suptitle('3')
-    plt.imshow(guess, cmap='gray')
-    plt.show()
+    # fig = plt.figure()
+    # fig.suptitle('3')
+    # plt.imshow(guess, cmap='gray')
+    # plt.show()
     
     # normalize guess volume
-    guess = guess/np.max(guess)*norm_sum
+    guess = guess/np.sum(guess)*norm_sum1
     
 
     fig = plt.figure()
@@ -117,8 +118,8 @@ if __name__ == "__main__":
     small_nr = 1e-15
     
     runSkimage      = False
-    runDedicated    = True
-    runFull         = True
+    runDedicated    = False
+    runFull         = False
     runCombined     = True
     
     # Import image
@@ -132,10 +133,10 @@ if __name__ == "__main__":
     guess3 = np.ones([N,N])  
     
     # Nr of iterations used during reconstruction
-    iNrIterations = 1
+    iNrIterations = 6
     
     # define angles
-    nr_angles = 120
+    nr_angles = 40
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace2D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles))
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         measured0 = radon(real0,theta=angles,circle=True)    
         measured0 = measured0/np.max(measured0)*100
         measured0 = np.random.poisson(measured0)
-        norm_sum0 = np.sum(measured0)/nr_angles
+        norm_sum0 = np.max(measured0)/nr_angles
         
         plt.figure()
         plt.imshow(measured0,cmap='gray')
@@ -177,7 +178,7 @@ if __name__ == "__main__":
             error_sin0 = measured0/simulated0
             error_vol0 = iradon(error_sin0, theta=angles, output_size=N, filter=None, interpolation='linear', circle=True)
             guess0 = guess0*error_vol0
-            guess0 = guess0/np.sum(guess0)*norm_sum0
+            guess0 = guess0/np.max(guess0)*norm_sum0
             
             plt.figure()
             plt.imshow(guess0, cmap='gray')
@@ -191,7 +192,7 @@ if __name__ == "__main__":
             guess1 = mlemStep(guess1, measured1, norm_sum1, dedicated)
             
         if runCombined:
-            guess3 = mlemStepC(guess3, measured1, measured2, norm_sum1 + norm_sum2, dedicated, full)
+            guess3 = mlemStepC(guess3, measured1, measured2, norm_sum1, norm_sum2, dedicated, full)
 
     
     
