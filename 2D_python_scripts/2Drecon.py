@@ -16,7 +16,6 @@ from skimage.io import imread
 from skimage.transform import radon, rescale,iradon
 from skimage import exposure
 
-import radonworkshop
 import raytrace2D
 
 # Simulate measurement
@@ -26,6 +25,19 @@ def SimulateMeasurements(real, detector):
     measured = measured/np.max(measured)*100
     measured = np.random.poisson(measured)
     norm_sum = np.sum(measured)/len(detector.angles)
+    
+    plt.figure()
+    plt.imshow(measured,cmap='gray')
+    plt.show()
+    
+    return measured, norm_sum  
+
+def SimulateMeasurementsC(real, detector1, detector2):
+    measured = detector1.sfp(real)
+    measured = measured + detector2.sfp(real)
+    measured = measured/np.max(measured)*100
+    measured = np.random.poisson(measured)
+    norm_sum = np.sum(measured)/len(detector1.angles + detector2.angles)
     
     plt.figure()
     plt.imshow(measured,cmap='gray')
@@ -54,6 +66,49 @@ def mlemStep(guess, measured, norm_sum, detector):
     
     return guess
     
+def mlemStepC(guess, measured1, measured2, norm_sum, detector1, detector2):
+    # forward project guess volume
+    simulated1 = detector1.sfp(guess)
+    simulated2 = detector2.sfp(guess)
+    # prevent dividing by zero
+    simulated1[simulated1 == 0] = 1e-15
+    simulated2[simulated2 == 0] = 1e-15
+    # calculate error sinogram
+    error_sin1 = measured1/simulated1
+    error_sin2 = measured2/simulated2
+    # backproject to error volume
+    error_vol = detector1.sbp(error_sin1, N)
+    
+    fig = plt.figure()
+    fig.suptitle('1')
+    plt.imshow(error_vol, cmap='gray')
+    plt.show()
+    
+    error_vol += detector2.sbp(error_sin2, N)
+
+    fig = plt.figure()
+    fig.suptitle('2')
+    plt.imshow(error_vol, cmap='gray')
+    plt.show()
+    
+    # update guess volume
+    guess = guess*error_vol
+
+    fig = plt.figure()
+    fig.suptitle('3')
+    plt.imshow(guess, cmap='gray')
+    plt.show()
+    
+    # normalize guess volume
+    guess = guess/np.max(guess)*norm_sum
+    
+
+    fig = plt.figure()
+    fig.suptitle('4')
+    plt.imshow(guess, cmap='gray')
+    plt.show()
+    
+    return guess
     
 #%% When started as standalone 
 if __name__ == "__main__":
@@ -64,6 +119,7 @@ if __name__ == "__main__":
     runSkimage      = False
     runDedicated    = True
     runFull         = True
+    runCombined     = True
     
     # Import image
     real0 = imread("big_brain.png")[:,:,0]
@@ -72,13 +128,14 @@ if __name__ == "__main__":
     N=real0.shape[0]
     guess0 = np.ones([N,N])
     guess1 = np.ones([N,N])
-    guess2 = np.ones([N,N])  
+    guess2 = np.ones([N,N]) 
+    guess3 = np.ones([N,N])  
     
     # Nr of iterations used during reconstruction
-    iNrIterations = 8
+    iNrIterations = 1
     
     # define angles
-    nr_angles = 360
+    nr_angles = 120
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace2D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles))
@@ -97,12 +154,14 @@ if __name__ == "__main__":
         plt.imshow(measured0,cmap='gray')
         plt.show()
     
-    if runDedicated:
+    if runDedicated or runCombined:
         measured1, norm_sum1 = SimulateMeasurements(real0, dedicated)
     
-    if runFull:
+    if runFull or runCombined:
         measured2, norm_sum2 = SimulateMeasurements(real0, full)
     
+    # if runCombined:
+    #     measured3, norm_sum3 = SimulateMeasurementsC(real0, dedicated, full)
     
     
 #    % MLEM loop
@@ -124,13 +183,15 @@ if __name__ == "__main__":
             plt.imshow(guess0, cmap='gray')
             plt.show()
         
-        # if runFull:
-            # guess2 = mlemStep(guess2, measured2, norm_sum2, full) 
+        if runFull:
+            guess2 = mlemStep(guess2, measured2, norm_sum2, full) 
 
     
         if runDedicated:
             guess1 = mlemStep(guess1, measured1, norm_sum1, dedicated)
-            guess1 = mlemStep(guess1, measured2, norm_sum2, full)
+            
+        if runCombined:
+            guess3 = mlemStepC(guess3, measured1, measured2, norm_sum1 + norm_sum2, dedicated, full)
 
     
     
@@ -156,6 +217,14 @@ if __name__ == "__main__":
         plt.figure()
         plt.imshow(recon2,cmap='gray')
         plt.show()
+        
+    if runCombined:
+        recon3=guess3
+        
+        plt.figure()
+        plt.imshow(recon3,cmap='gray')
+        plt.show()
+        
 
 
                      
