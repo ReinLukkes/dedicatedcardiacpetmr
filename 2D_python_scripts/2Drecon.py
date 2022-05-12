@@ -63,7 +63,7 @@ if __name__ == "__main__":
     
     runSkimage      = False
     runDedicated    = True
-    runFull         = False
+    runFull         = True
     
     # Import image
     real0 = imread("big_brain.png")[:,:,0]
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     iNrIterations = 8
     
     # define angles
-    nr_angles = 180
+    nr_angles = 360
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace2D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles))
@@ -108,7 +108,7 @@ if __name__ == "__main__":
 #    % MLEM loop
     for iIter in range(iNrIterations):      
     
-        print(iIter, "/", iNrIterations)
+        print(iIter+1, "/", iNrIterations)
         
         
         
@@ -124,14 +124,14 @@ if __name__ == "__main__":
             plt.imshow(guess0, cmap='gray')
             plt.show()
         
-        if runDedicated:
-            guess1 = mlemStep(guess1, measured1, norm_sum1, dedicated)
-        
-        if runFull:
-            guess2 = mlemStep(guess2, measured2, norm_sum2, full) 
+        # if runFull:
+            # guess2 = mlemStep(guess2, measured2, norm_sum2, full) 
 
     
-    
+        if runDedicated:
+            guess1 = mlemStep(guess1, measured1, norm_sum1, dedicated)
+            guess1 = mlemStep(guess1, measured2, norm_sum2, full)
+
     
     
     # Show reconstructed image

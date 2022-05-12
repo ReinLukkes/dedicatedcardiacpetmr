@@ -118,11 +118,13 @@ class Detector:
                 trace_result[j, i] = self.RayTracing(angle, AttenuationMap, x, y)
                 
                 
-                # plt.figure()
-                # plt.imshow(trace_result, cmap='gray')
-                # plt.show()
-        
                 
+        
+        
+        # plt.figure()
+        # plt.imshow(trace_result, cmap='gray')
+        # plt.show()        
+        
         return trace_result
     
     def BackProjection2(self, sinogram, output_size):
@@ -190,7 +192,7 @@ class Detector:
         # plt.imshow(DensityMap, cmap='gray')
         # plt.show()
         
-        return trace_result / DensityMap    
+        return trace_result #/ DensityMap    
     
     
     def RayTracing(self, ThetaRay, AttenuationMap, i, j):
