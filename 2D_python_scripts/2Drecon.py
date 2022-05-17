@@ -102,6 +102,9 @@ def mlemStepC(guess, measured1, measured2, norm_sum, detector1, detector2):
     # normalize guess volume
     guess = guess/np.max(guess)*norm_sum
     
+    guess = guess * detector1.sbp(np.ones([error_sin1.shape[0], error_sin1.shape[1]]), N)
+    guess = guess * detector2.sbp(np.ones([error_sin2.shape[0], error_sin2.shape[1]]), N)
+    
 
     fig = plt.figure()
     fig.suptitle('4')
@@ -135,7 +138,7 @@ if __name__ == "__main__":
     iNrIterations = 1
     
     # define angles
-    nr_angles = 120
+    nr_angles = 40
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace2D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles))

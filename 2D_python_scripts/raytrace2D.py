@@ -149,7 +149,7 @@ class Detector:
         # plt.imshow(DensityMap, cmap='gray')
         # plt.show()
         
-        return trace_result# / DensityMap
+        return trace_result# DensityMap
     
     def ForwardProjection(self, AttenuationMap):
         
