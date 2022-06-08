@@ -135,7 +135,7 @@ if __name__ == "__main__":
     iNrIterations = 1
     
     # define angles
-    nr_angles = 120
+    nr_angles = 10
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace2D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles))
