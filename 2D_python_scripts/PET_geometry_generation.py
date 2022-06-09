@@ -56,14 +56,20 @@ for r in range(n_rings):
                
         det = (i + .5) * n_det_per_sect_transax + 1        # detector index first detector after middle
         
+        if det != int(det):
+            raise Exception("det is not an full number")
+            
+        det = int(det)
+        
         # loop over all detectors after middle of current sector
-        while det < ((i+1) * n_det_per_sect_transax + 1):
+        while det < ((i+1) * n_det_per_sect_transax):
             
             # add x, y and z to lookup table for current detector
-            PET_PHILIPS_UMCU_geom[r,det,1] = x
-            PET_PHILIPS_UMCU_geom[r,det,2] = y
-            PET_PHILIPS_UMCU_geom[r,det,3] = z
-            PET_PHILIPS_UMCU_geom[r,det,4] = (r)* n_det_per_ring + det
+            print(det)
+            PET_PHILIPS_UMCU_geom[r,det,0] = x
+            PET_PHILIPS_UMCU_geom[r,det,1] = y
+            PET_PHILIPS_UMCU_geom[r,det,2] = z
+            PET_PHILIPS_UMCU_geom[r,det,3] = (r)* n_det_per_ring + det
             
             # check if the next detector is in a different module
             if round(det / n_det_per_mod_transax) == (det / n_det_per_mod_transax):
@@ -80,14 +86,20 @@ for r in range(n_rings):
         
         det = (i + .5) * n_det_per_sect_transax             # detector index first detector before middle
         
+        if det != int(det):
+            raise Exception("det is not an full number")
+            
+        det = int(det)
+
         # loop over all detectors before middle of current sector
-        while det > (i) * n_det_per_sect_transax:
+        while det > (i) * n_det_per_sect_transax - 1:
             
             # add x, y and z to lookup table for current detector
-            PET_PHILIPS_UMCU_geom[r,det,1] = x
-            PET_PHILIPS_UMCU_geom[r,det,2] = y
-            PET_PHILIPS_UMCU_geom[r,det,3] = z
-            PET_PHILIPS_UMCU_geom[r,det,4] = (r)*n_det_per_ring + det
+            print(det)
+            PET_PHILIPS_UMCU_geom[r,det,0] = x
+            PET_PHILIPS_UMCU_geom[r,det,1] = y
+            PET_PHILIPS_UMCU_geom[r,det,2] = z
+            PET_PHILIPS_UMCU_geom[r,det,3] = (r)*n_det_per_ring + det
             
             # check if the next detector is in a different module
             if round(((det - 1) / n_det_per_mod_transax)) == ((det - 1) / n_det_per_mod_transax):
@@ -113,9 +125,12 @@ for r in range(n_rings):
 # [LOR_indices, ~] = getLORindices(PET_PHILIPS_UMCU_geom)
 
 
-LOR_indices = customLORindices(PET_PHILIPS_UMCU_geom, n_sectors, n_mod_ax, n_mod_transax, n_det_per_mod_transax, n_det_per_mod_ax)
+LOR_indices = customLORindices.customLORindices(PET_PHILIPS_UMCU_geom, n_sectors, n_mod_ax, n_mod_transax, n_det_per_mod_transax, n_det_per_mod_ax)
 
-datafile = pd.DataFrame(LOR_indices)
+LOR_indices2d = LOR_indices.reshape(432, 864)
+
+
+datafile = pd.DataFrame(LOR_indices2d)
 datafile.to_csv('LOR_indices.csv', header = False, index = False)
 
 #save('C:\Users\rjosesan\Documents\MATLAB\SSS_Algorithm\ValidatedGeom\geom.mat', 'PET_PHILIPS_UMCU_geom')

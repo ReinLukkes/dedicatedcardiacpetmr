@@ -80,7 +80,7 @@ def customLORindices(geom, m_nbRsectorsPerFullRing, m_nbModulesAxlFullRing, m_nb
                     else:
                         phi = (2 * A - r) / 2
                 
-                LOR_indices[d1, d2, 1] = int(phi)
-                LOR_indices[d1, d2, 2] = int(r + m_nbSinogramBins / 2)
+                LOR_indices[d1, d2, 0] = int(phi)
+                LOR_indices[d1, d2, 1] = int(r + m_nbSinogramBins / 2)
     
     return LOR_indices
