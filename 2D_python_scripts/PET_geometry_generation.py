@@ -40,13 +40,13 @@ z = .5 * det_size  # z of first ring of detectors
 
 # loop over all rings
 # for r = 1:n_rings:
-for r in range(n_rings):
+for r in range(1, n_rings+1):
     
     # loop over all sectors
     # for i = 1:n_sectors:
-    for i in range(n_sectors):
+    for i in range(1, n_sectors+1):
         
-        angle = np.deg2rad(90 + 8 + (i) * d_angle)    # angle sector, verified in GATE
+        angle = np.deg2rad(90 + 8 + (i-1) * d_angle)    # angle sector, verified in GATE
         angle_sector = angle + (np.pi/2)      # slope of sector
         x_mid = R * np.cos(angle)        # x middle of sector
         y_mid = R * np.sin(angle)        # y middle of sector
@@ -54,7 +54,7 @@ for r in range(n_rings):
         x = x_mid + .5 * (det_size + gap_det) * np.cos(angle_sector) # x of first detector after middle
         y = y_mid + .5 * (det_size + gap_det) * np.sin(angle_sector) # y of first detector after middle
                
-        det = (i + .5) * n_det_per_sect_transax + 1        # detector index first detector after middle
+        det = (i - .5) * n_det_per_sect_transax + 1       # detector index first detector after middle
         
         if det != int(det):
             raise Exception("det is not an full number")
@@ -62,14 +62,14 @@ for r in range(n_rings):
         det = int(det)
         
         # loop over all detectors after middle of current sector
-        while det < ((i+1) * n_det_per_sect_transax):
+        while det < (i * n_det_per_sect_transax + 1):
             
             # add x, y and z to lookup table for current detector
-            print(det)
-            PET_PHILIPS_UMCU_geom[r,det,0] = x
-            PET_PHILIPS_UMCU_geom[r,det,1] = y
-            PET_PHILIPS_UMCU_geom[r,det,2] = z
-            PET_PHILIPS_UMCU_geom[r,det,3] = (r)* n_det_per_ring + det
+            #print(det)
+            PET_PHILIPS_UMCU_geom[r-1,det-1,0] = x
+            PET_PHILIPS_UMCU_geom[r-1,det-1,1] = y
+            PET_PHILIPS_UMCU_geom[r-1,det-1,2] = z
+            PET_PHILIPS_UMCU_geom[r-1,det-1,3] = (r-1)* n_det_per_ring + det
             
             # check if the next detector is in a different module
             if round(det / n_det_per_mod_transax) == (det / n_det_per_mod_transax):
@@ -84,7 +84,7 @@ for r in range(n_rings):
         x = x_mid - .5 * (det_size + gap_det) * np.cos(angle_sector) # x of first detector before middle
         y = y_mid - .5 * (det_size + gap_det) * np.sin(angle_sector) # y of first detector before middle
         
-        det = (i + .5) * n_det_per_sect_transax             # detector index first detector before middle
+        det = (i - .5) * n_det_per_sect_transax            # detector index first detector before middle
         
         if det != int(det):
             raise Exception("det is not an full number")
@@ -92,14 +92,14 @@ for r in range(n_rings):
         det = int(det)
 
         # loop over all detectors before middle of current sector
-        while det > (i) * n_det_per_sect_transax - 1:
+        while det > (i - 1) * n_det_per_sect_transax:
             
             # add x, y and z to lookup table for current detector
-            print(det)
-            PET_PHILIPS_UMCU_geom[r,det,0] = x
-            PET_PHILIPS_UMCU_geom[r,det,1] = y
-            PET_PHILIPS_UMCU_geom[r,det,2] = z
-            PET_PHILIPS_UMCU_geom[r,det,3] = (r)*n_det_per_ring + det
+            #print(det)
+            PET_PHILIPS_UMCU_geom[r-1,det-1,0] = x
+            PET_PHILIPS_UMCU_geom[r-1,det-1,1] = y
+            PET_PHILIPS_UMCU_geom[r-1,det-1,2] = z
+            PET_PHILIPS_UMCU_geom[r-1,det-1,3] = (r-1)*n_det_per_ring + det
             
             # check if the next detector is in a different module
             if round(((det - 1) / n_det_per_mod_transax)) == ((det - 1) / n_det_per_mod_transax):
@@ -113,7 +113,7 @@ for r in range(n_rings):
         
     
     # check if the next ring of detectors is in a different module
-    if ((r+1) // n_det_per_mod_ax) == 1 or ((r+1) // n_det_per_mod_ax) == 2:
+    if (r / n_det_per_mod_ax) == 1 or (r / n_det_per_mod_ax) == 2:
         z = z + det_size + gap_mod_ax  # add module gap
     else:
         z = z + det_size + gap_det # only add detector gap
@@ -127,11 +127,32 @@ for r in range(n_rings):
 
 LOR_indices = customLORindices.customLORindices(PET_PHILIPS_UMCU_geom, n_sectors, n_mod_ax, n_mod_transax, n_det_per_mod_transax, n_det_per_mod_ax)
 
-LOR_indices2d = LOR_indices.reshape(432, 864)
 
+# geom = pd.read_csv('geom.csv', header = None).to_numpy()
+# geom = geom.reshape(36, 432, 4, order='F')
+# geom = np.round_(geom, decimals=3)
+# PET_PHILIPS_UMCU_geom = np.round_(PET_PHILIPS_UMCU_geom, decimals=3)
+
+# difarray = geom - PET_PHILIPS_UMCU_geom
+# difarray = difarray.reshape(36, 1728, order='F')
+# difarray = np.round_(difarray, decimals=2)
+
+# difarray3d = difarray.reshape(36, 432, 4, order='F')
+
+
+LOR_indices2d = LOR_indices.reshape(432, 864, order='F')
+# LOR_indices2d = np.append(LOR_indices[:,:,0], LOR_indices[:,:,1], axis = 1)
 
 datafile = pd.DataFrame(LOR_indices2d)
 datafile.to_csv('LOR_indices.csv', header = False, index = False)
 
+
+PET_PHILIPS_UMCU_geom2d = PET_PHILIPS_UMCU_geom.reshape(36, 1728, order='F')
+# PET_PHILIPS_UMCU_geom2d = np.append(PET_PHILIPS_UMCU_geom[:,:,0], PET_PHILIPS_UMCU_geom[:,:,1], axis = 1)
+# PET_PHILIPS_UMCU_geom2d = np.append(PET_PHILIPS_UMCU_geom2d, PET_PHILIPS_UMCU_geom[:,:,2], axis = 1)
+# PET_PHILIPS_UMCU_geom2d = np.append(PET_PHILIPS_UMCU_geom2d, PET_PHILIPS_UMCU_geom[:,:,3], axis = 1)
+
+datafile = pd.DataFrame(PET_PHILIPS_UMCU_geom2d)
+datafile.to_csv('PET_PHILIPS_UMCU_geom.csv', header = False, index = False)
 #save('C:\Users\rjosesan\Documents\MATLAB\SSS_Algorithm\ValidatedGeom\geom.mat', 'PET_PHILIPS_UMCU_geom')
 #save('C:\Users\rjosesan\Documents\MATLAB\SSS_Algorithm\ValidatedGeom\lor.mat', 'LOR_indices')
