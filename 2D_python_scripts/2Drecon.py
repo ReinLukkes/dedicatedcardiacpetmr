@@ -32,6 +32,7 @@ def SimulateMeasurements(real, detector):
     
     return measured, norm_sum  
 
+# Simulate the measurements for the ring and dedicated scanners combined
 def SimulateMeasurementsC(real, detector1, detector2):
     measured = detector1.sfp(real)
     measured = measured + detector2.sfp(real)

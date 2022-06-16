@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Apr 12 13:15:33 2022
+Created on Thu Jun 16 13:52:41 2022
 
-@author: Rein
+@author: rlukkes2
 """
 
 import numpy as np
@@ -197,13 +197,16 @@ class Detector:
         return trace_result / DensityMap    
     
     
-    def RayTracing(self, ThetaRay, AttenuationMap, i, j):
+    def RayTracing(self, ThetaRay, AttenuationMap, x, y, z):
         # // Declare variables
         # double AttenuationCorrectionValue;			// voxel attenuation value ---> output value
         # int delta_ix;								// directional constants used in scan path
         # int delta_iy;								// directional constants used in scan path
         delta_ix = 0
         delta_iy = 0
+        delta_iz = 0
+        
+        mapDim = AttenuationMap.shape
         
         # // Initial values
         # double s_curr = 0.0;						// current value of s (current position on path)
@@ -216,62 +219,109 @@ class Detector:
         LineIntegral = 0.0					#// Line Integral value;
         l = 0.0
         
+        # % assuming isotropic voxels for calculation of path length (in cm)
+        # voxel_dim = R_FOV / (.5 * xdim);
+        
         # // compute unit directions of path
+        # % direction of ray in x,y,z directions
+        # e_x = cosd(phi);
+        # e_y = sind(phi);
+        # e_z = sind(theta);
+        
         e_x = np.cos(ThetaRay)
         e_y = np.sin(ThetaRay)
+        e_z = np.sin() #TODO: figure tis sh out
            
         #// prevent dividing by zero
         if e_x == 0:
         	e_x = 1e-15
         if e_y == 0:
         	e_y = 1e-15
+        if e_z == 0:
+        	e_z = 1e-15
+            
+        #// start voxel
+        ix = x
+        iy = y
+        iz = z
         
         #// directional constants used in scan path
         delta_ix = 1 if e_x >= 0 else -1	# determine sign
         d_x = 0 if delta_ix < 0 else 1
         delta_iy = 1 if e_y >= 0 else -1	# determine sign
         d_y = 0 if delta_iy < 0 else 1
+        delta_iz = 1 if e_z >= 0 else -1	# determine sign
+        d_z = 0 if delta_iz < 0 else 1
         
-        #// start voxel
-        ix = i
-        iy = j
+
            
         #// distance from start voxel
-        Dx = d_x-i
-        Dy = d_y-j
-        
+        Dx = d_x-x
+        Dy = d_y-y
+        Dz = d_z-z
         #// prevent divisions inside inner loops, so pre-calculate
-        inv_e_x = 1/e_x;
-        inv_e_y = 1/e_y;
+        inv_e_x = 1/e_x
+        inv_e_y = 1/e_y
+        inv_e_z = 1/e_z
     
         # print("Angle =", ThetaRay)
         #// compute line integral;
-        while (ix > 0) and (iy > 0) and (ix < AttenuationMap.shape[1]-1) and (iy < AttenuationMap.shape[0]-1):
+        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]) and (iy < mapDim[0]) and (iz < mapDim[2]):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)
             #// direction of the path is taken into account
             s_x = (ix+Dx)*inv_e_x		#//s_x is total path to x-intersection
             s_y = (iy+Dy)*inv_e_y		#//s_y is total path to y-intersection
+            s_z = (iz+Dz)*inv_e_z		#//s_z is total path to z-intersection
            
+            # % calculate distance to each voxel boundary
+            # a_x = abs((ix-x)*inv_e_x);
+            # a_y = abs((iy-y)*inv_e_y);
+            # a_z = abs((iz-z)*inv_e_z);
+            
+            
             #// only the closest intersection is really encountered
             #// find this intersection and update voxel index for this direction
             #// in some cases more boundaries are possible (45 degree paths)
-    
             #TDOD: check influence of x voxel preference
-            if s_x <= s_y:				#// intersection at x-boundary
-            	s_next = s_x
-            	ix += delta_ix			#// x-index next voxel
-            	
-            if s_y <= s_x:				#// intersection at y-boundary
-            	s_next = s_y
-            	iy += delta_iy			#// y-index next voxel        
+            
+            
+            
+            if s_x <= s_y and s_x <= s_z:				#// intersection at x-boundary
+               	s_next = s_x
+               	ix += delta_ix			#// x-index next voxel
+                if s_x == s_y: iy += delta_iy 
+                if s_x == s_z: iz += delta_iz
+
+            elif s_y <= s_x and s_y <= s_z:				#// intersection at y-boundary
+                s_next = s_y
+                iy += delta_iy			#// y-index next voxel
+                if s_y == s_z: iz += delta_iz
+
+            else: #s_z <= s_x and s_z <= s_y
+                s_next = s_z
+                iz += delta_iz
     
+    
+            # % calculate the length through current voxel
+            # l = (((1+(e_z^2))*(a^2))^.5)*voxel_dim;
             #// length through the voxel
             l = (s_next-s_curr)
     
+            # % get the attenuation coefficient
+            # if AttenuationMap(round(x),round(y),round(z)) > 0
+            #     tissue = AttenuationMap(round(x),round(y),round(z));
+            #     atn_coef = attenuation_table(energy_index,tissue);
+            # else
+            #     atn_coef = 0;
+            # end
+            
+            # LineIntegralAtt = LineIntegralAtt + l*atn_coef;
+            # LineIntegralWeight = LineIntegralWeight + l*ActivityMap(round(x),round(y),round(z));
+    
             #// calculate line integral
-            LineIntegral += AttenuationMap[iy,ix]*l
+            LineIntegral += AttenuationMap[iy,ix]*l 
     
             #// update voxelcount and current position
             s_curr = s_next
@@ -348,8 +398,7 @@ class Detector:
             #// only the closest intersection is really encountered
             #// find this intersection and update voxel index for this direction
             #// in some cases more boundaries are possible (45 degree paths)
-            
-            #TDOD: check influence of x voxel preference
+    
             if s_x <= s_y:				#// intersection at x-boundary
             	s_next = s_x
             	ix += delta_ix			#// x-index next voxel

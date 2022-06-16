@@ -60,7 +60,12 @@ function [ACV, w] = RayTracing3D_ACV_w(phi,theta,xs,ys,zs,ActivityMap,Attenuatio
     inv_e_y = 1/e_y;
     inv_e_z = 1/e_z;
 
-    while round(x) >= 1 && round(x) <= xdim && round(y) >= 1 && round(y) <= ydim && round(z) >= 1 && round(z) <= zdim
+    while round(x) >= 1 && 
+        round(x) <= xdim && 
+        round(y) >= 1 && 
+        round(y) <= ydim && 
+        round(z) >= 1 && 
+        round(z) <= zdim
 
         % calculate distance to each voxel boundary
         a_x = abs((ix-x)*inv_e_x);
@@ -70,6 +75,8 @@ function [ACV, w] = RayTracing3D_ACV_w(phi,theta,xs,ys,zs,ActivityMap,Attenuatio
         % set change in all directions to 0
         d_ix = 0; d_iy = 0; d_iz = 0;
 
+
+        % TODO: check influence of x preference
         % check which voxel boundary is nearest and update a and d_x, d_y and d_z accordingly
         if a_x <= a_y && a_x <= a_z
             if a_x == a_y 
