@@ -19,12 +19,13 @@ densityMapStrength = 0.1
 
 class Detector:
     
-    def __init__(self, radius, number, detectorType, angles, width = 0, cellSize = 1):
+    def __init__(self, radius, number, detectorType, angles, attenuationMap, width = 0, cellSize = 1):
         self.radius     = radius    # Distance of scanner from centre
         self.number     = number    # Number of cells in scanner
         self.cellSize   = cellSize  # Size of cells in dedicated scanner
         self.detectorType      = detectorType     # Detector type: 0 = dedicated, 1 = full
         self.angles     = angles
+        self.attenuationMap = attenuationMap
         if width == 0:              # width of the partial detector array used for full
             self.width = number
         else:
@@ -36,12 +37,15 @@ class Detector:
         if number <= 0:
             print("error: detector number too small")
             
+        if detectorType == 1:
+            self.detectorArray = self.CircleDetector()
             
-    def sfp(self, AttenuationMap):  
+            
+    def sfp(self):  
         if self.detectorType == 0:
-            return self.ForwardProjection(AttenuationMap)
+            return self.ForwardProjection()
         if self.detectorType == 1:
-            return self.ForwardProjection2(AttenuationMap)
+            return self.ForwardProjection2()
             
         
     def sbp(self, sinogram, output_size):
@@ -50,103 +54,63 @@ class Detector:
         if self.detectorType == 1:
             return self.BackProjection2(sinogram, output_size)
 
-    __all__ = ['sfp', 'sbp']
+    def setAttenuationMap(self, am):
+        self.attenuationMap = am
+        
+    __all__ = ['sfp', 'sbp', 'setAttenuationMap']
     
-    def DetectorLine(self, angle, image_size):
+    def CircleDetector(self):
         
         detector_array = []
-        rad_step = angle - math.pi/2
-        center = image_size//2
+        angles = np.arange(0, 2*np.pi, 2*np.pi/self.number)
+        center = self.attenuationMap.shape[0]//2
         
-        x0 = center + (np.cos(angle) * self.radius) - (np.sin(angle) * (self.width/2))
-        y0 = center + (np.sin(angle) * self.radius) + (np.cos(angle) * (self.width/2))
-        
-        detector_array.append( (int(np.round(x0)), int(np.round(y0))) )
-    
-        detector_spacing = self.width / self.number
-        stepx = np.cos(rad_step) * detector_spacing
-        stepy = np.sin(rad_step) * detector_spacing
-    
-    
-        # returns an array of rounded integer tuples
-        for i in range(1, self.number + 1):
-            detector_array.append( ( 
-                int(np.round(  
-                    x0 + (stepx * i))), 
-                int(np.round(
-                    y0 + (stepy * i))) 
-                    ) )
-    
+
+        for theta in angles:
+            x0 = center + ( (np.cos(theta) * self.radius))
+            y0 = center + ( (np.sin(theta) * self.radius))
+            detector_array.append(
+                (int(np.round(x0)), int(np.round(y0)), 0)
+                )
     
         return detector_array
     
-    def DetectorLineTester(self, AttenuationMap, center):
-        
-        trace_result = np.zeros((self.number, len(self.angles) ))
-        
-        
-        print(trace_result.shape[0])
-        
-        for i, angle in enumerate(np.deg2rad(self.angles)):
-            detector_array = self.DetectorLine(-angle, center)
-            print(len(detector_array))
-            for j in range(self.number): 
-                (x,y) = detector_array[j]
     
-                AttenuationMap[x, y] += 100
+    def ForwardProjection2(self):
+        
+        trace_result = np.zeros((self.number, self.number))
+        
+        for i in range(self.number):
+            for j in range(self.number):
+                if i == j:
+                    continue
                 
-        
-        plt.figure()
-        plt.imshow(AttenuationMap, cmap='gray')
-        plt.show()
-    
-    
-    def ForwardProjection2(self, AttenuationMap):
-        
-        trace_result = np.zeros((self.number, len(self.angles) ))
-        
-        
-        print(trace_result.shape[0])
-        
-        for i, angle in enumerate(np.deg2rad(self.angles)):
-            detector_array = self.DetectorLine(angle + math.pi, AttenuationMap.shape[0])
-            
-            # print(angle)
-            # print(detector_array)
-            
-            for j in range(self.number): 
-                (x,y) = detector_array[j]
-    
-                trace_result[j, i] = self.RayTracing(angle, AttenuationMap, x, y)
+                trace_result[j, i] = self.RayTracing(j, i)
                 
-                
-                
-        
-        
         # plt.figure()
         # plt.imshow(trace_result, cmap='gray')
         # plt.show()        
         
         return trace_result
     
-    def BackProjection2(self, sinogram, output_size):
-        
-        trace_result = np.zeros((output_size, output_size))
-        DensityMap = np.ones((output_size, output_size))
-        
-        for i, angle in enumerate(np.deg2rad(self.angles)):
-            detector_array = self.DetectorLine(angle + math.pi, output_size)
-            
+    def BackProjection2(self, sinogram):
+        dim = self.attenuationMap[0]
+        trace_result = np.zeros((dim, dim))
+        DensityMap = np.ones((dim, dim))
+
+
+        for i in range(self.number):
             for j in range(self.number):
-                (x,y) = detector_array[j]
+                if i == j:
+                    continue
                 
                 trace_result, DensityMap = self.inverseRayTracing(
-                    angle, 
                     trace_result, 
-                    x, y, 
+                    j, i, 
                     sinogram[j, i], 
-                    DensityMap)
-        
+                    DensityMap
+                    )
+                
         # plt.figure()
         # plt.imshow(DensityMap, cmap='gray')
         # plt.show()
@@ -197,7 +161,7 @@ class Detector:
         return trace_result / DensityMap    
     
     
-    def RayTracing(self, ThetaRay, AttenuationMap, x, y, z):
+    def RayTracing(self, j, i):
         # // Declare variables
         # double AttenuationCorrectionValue;			// voxel attenuation value ---> output value
         # int delta_ix;								// directional constants used in scan path
@@ -206,63 +170,55 @@ class Detector:
         delta_iy = 0
         delta_iz = 0
         
-        mapDim = AttenuationMap.shape
-        
+        startVoxel = self.detectorArray[j]
+        endVoxel = self.detectorArray[i]
+        rayVector = tuple(map(lambda k, l: k-l, endVoxel, startVoxel))      # get vector between the two voxels
+        print(rayVector)
+        magnitude = np.sqrt(np.sum(list(map(lambda k: k**2, rayVector))))   # calculate the magnitude
+        rayVector = tuple(map(lambda k: k/magnitude, rayVector))            # calculate the unit vector
+        rayVector = tuple(map(lambda k: 1e-15 if k == 0 else k, rayVector))            # prevent dividing by zero
+
+        print(startVoxel)
+        print(endVoxel)
+
+        mapDim = self.attenuationMap.shape
+
         # // Initial values
-        # double s_curr = 0.0;						// current value of s (current position on path)
-        # double s_next = 0.0;						// next value of s (next position on path)
-        # double LineIntegral = 0.0;					// Line Integral value;
-        # double l = 0.0;								// length
-        
         s_curr = 0.0						#// current value of s (current position on path)
         s_next = 0.0						#// next value of s (next position on path)
         LineIntegral = 0.0					#// Line Integral value;
-        l = 0.0
+        l = 0.0        
+        
+        # TEMPORARY
+        R_FOV = 1
         
         # % assuming isotropic voxels for calculation of path length (in cm)
-        # voxel_dim = R_FOV / (.5 * xdim);
+        # voxel_dim = R_FOV / (.5 * mapDim[1]);
         
-        # // compute unit directions of path
-        # % direction of ray in x,y,z directions
-        # e_x = cosd(phi);
-        # e_y = sind(phi);
-        # e_z = sind(theta);
+        voxel_dim = 1
         
-        e_x = np.cos(ThetaRay)
-        e_y = np.sin(ThetaRay)
-        e_z = np.sin() #TODO: figure tis sh out
-           
-        #// prevent dividing by zero
-        if e_x == 0:
-        	e_x = 1e-15
-        if e_y == 0:
-        	e_y = 1e-15
-        if e_z == 0:
-        	e_z = 1e-15
-            
-        #// start voxel
-        ix = x
-        iy = y
-        iz = z
+        # set voxel to start
+        ix = startVoxel[0]
+        iy = startVoxel[1]
+        iz = startVoxel[2]
         
         #// directional constants used in scan path
-        delta_ix = 1 if e_x >= 0 else -1	# determine sign
+        delta_ix = 1 if rayVector[0] >= 0 else -1	# determine sign
         d_x = 0 if delta_ix < 0 else 1
-        delta_iy = 1 if e_y >= 0 else -1	# determine sign
+        delta_iy = 1 if rayVector[1] >= 0 else -1	# determine sign
         d_y = 0 if delta_iy < 0 else 1
-        delta_iz = 1 if e_z >= 0 else -1	# determine sign
+        delta_iz = 1 if rayVector[2] >= 0 else -1	# determine sign
         d_z = 0 if delta_iz < 0 else 1
         
-
-           
         #// distance from start voxel
-        Dx = d_x-x
-        Dy = d_y-y
-        Dz = d_z-z
+        Dx = d_x-ix
+        Dy = d_y-iy
+        Dz = d_z-iz
+        
         #// prevent divisions inside inner loops, so pre-calculate
-        inv_e_x = 1/e_x
-        inv_e_y = 1/e_y
-        inv_e_z = 1/e_z
+        inv_e_x = 1/rayVector[0]
+        inv_e_y = 1/rayVector[1]
+        inv_e_z = 1/rayVector[2]
     
         # print("Angle =", ThetaRay)
         #// compute line integral;
@@ -304,10 +260,13 @@ class Detector:
                 iz += delta_iz
     
     
+    
+            #TODO: proper length through voxel calculation
+            
+            
             # % calculate the length through current voxel
             # l = (((1+(e_z^2))*(a^2))^.5)*voxel_dim;
-            #// length through the voxel
-            l = (s_next-s_curr)
+            l = np.sqrt( (1 + (rayVector[2]**2)) * (s_next**2) ) * voxel_dim
     
             # % get the attenuation coefficient
             # if AttenuationMap(round(x),round(y),round(z)) > 0
@@ -321,7 +280,7 @@ class Detector:
             # LineIntegralWeight = LineIntegralWeight + l*ActivityMap(round(x),round(y),round(z));
     
             #// calculate line integral
-            LineIntegral += AttenuationMap[iy,ix]*l 
+            LineIntegral += self.attenuationMap[iy,ix]*l 
     
             #// update voxelcount and current position
             s_curr = s_next
@@ -339,14 +298,16 @@ class Detector:
         # return np.exp(-LineIntegral) 
     
     
-    def inverseRayTracing(self, ThetaRay, AttenuationMap, i, j, value, DensityMap):
+    def inverseRayTracing(self, ThetaRay, AttenuationMap, x, y, z, value, DensityMap):
         # // Declare variables
         # double AttenuationCorrectionValue;			// voxel attenuation value ---> output value
         # int delta_ix;								// directional constants used in scan path
         # int delta_iy;								// directional constants used in scan path
         delta_ix = 0
         delta_iy = 0
+        delta_iz = 0
         
+        mapDim = AttenuationMap.shape
         # // Initial values
         # double s_curr = 0.0;						// current value of s (current position on path)
         # double s_next = 0.0;						// next value of s (next position on path)
@@ -355,36 +316,58 @@ class Detector:
         
         s_curr = 0.0						#// current value of s (current position on path)
         s_next = 0.0						#// next value of s (next position on path)
+        LineIntegral = 0.0					#// Line Integral value;
         l = 0.0
         
+        # TEMPORARY
+        R_FOV = 1
+        
+        # % assuming isotropic voxels for calculation of path length (in cm)
+        # voxel_dim = R_FOV / (.5 * xdim);
+        
+        voxel_dim = R_FOV / (.5 * mapDim[1])
+        
         # // compute unit directions of path
+        # % direction of ray in x,y,z directions
+        # e_x = cosd(phi);
+        # e_y = sind(phi);
+        # e_z = sind(theta);
+        
         e_x = np.cos(ThetaRay)
         e_y = np.sin(ThetaRay)
+        e_z = np.sin() #TODO: figure tis sh out
            
         #// prevent dividing by zero
         if e_x == 0:
         	e_x = 1e-15
         if e_y == 0:
         	e_y = 1e-15
+        if e_z == 0:
+        	e_z = 1e-15
+            
+        #// start voxel
+        ix = x
+        iy = y
+        iz = z
         
         #// directional constants used in scan path
         delta_ix = 1 if e_x >= 0 else -1	# determine sign
         d_x = 0 if delta_ix < 0 else 1
         delta_iy = 1 if e_y >= 0 else -1	# determine sign
         d_y = 0 if delta_iy < 0 else 1
+        delta_iz = 1 if e_z >= 0 else -1	# determine sign
+        d_z = 0 if delta_iz < 0 else 1
         
-        #// start voxel
-        ix = i
-        iy = j
+ 
            
         #// distance from start voxel
-        Dx = d_x-i
-        Dy = d_y-j
-        
+        Dx = d_x-x
+        Dy = d_y-y
+        Dz = d_z-z
         #// prevent divisions inside inner loops, so pre-calculate
-        inv_e_x = 1/e_x;
-        inv_e_y = 1/e_y;
-        
+        inv_e_x = 1/e_x
+        inv_e_y = 1/e_y
+        inv_e_z = 1/e_z
         # print("Angle =", ThetaRay)
         #// compute line integral;
         while (ix > 0) and (iy > 0) and (ix < AttenuationMap.shape[1]-1) and (iy < AttenuationMap.shape[0]-1):
@@ -394,20 +377,35 @@ class Detector:
             #// direction of the path is taken into account
             s_x = (ix+Dx)*inv_e_x		#//s_x is total path to x-intersection
             s_y = (iy+Dy)*inv_e_y		#//s_y is total path to y-intersection
-           
+            s_z = (iz+Dz)*inv_e_z		#//s_z is total path to z-intersection
+            
             #// only the closest intersection is really encountered
             #// find this intersection and update voxel index for this direction
             #// in some cases more boundaries are possible (45 degree paths)
+            #TDOD: check influence of x voxel preference
+            
+            
+            
+            if s_x <= s_y and s_x <= s_z:				#// intersection at x-boundary
+               	s_next = s_x
+               	ix += delta_ix			#// x-index next voxel
+                if s_x == s_y: iy += delta_iy 
+                if s_x == s_z: iz += delta_iz
+
+            elif s_y <= s_x and s_y <= s_z:				#// intersection at y-boundary
+                s_next = s_y
+                iy += delta_iy			#// y-index next voxel
+                if s_y == s_z: iz += delta_iz
+
+            else: #s_z <= s_x and s_z <= s_y
+                s_next = s_z
+                iz += delta_iz
     
-            if s_x <= s_y:				#// intersection at x-boundary
-            	s_next = s_x
-            	ix += delta_ix			#// x-index next voxel
-            	
-            if s_y <= s_x:				#// intersection at y-boundary
-            	s_next = s_y
-            	iy += delta_iy			#// y-index next voxel        
     
-            #// length through the voxel
+            # % calculate the length through current voxel
+            # l = (((1+(e_z^2))*(a^2))^.5)*voxel_dim;
+            #TODO // length through the voxel 
+            #l = (((1 + (e_z^2)) * (s_next^2)) ^ .5) * voxel_dim
             l = (s_next-s_curr)
     
             #// update the value of the pixel  

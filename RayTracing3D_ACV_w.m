@@ -142,8 +142,9 @@ function [ACV, w] = RayTracing3D_ACV_w(phi,theta,xs,ys,zs,ActivityMap,Attenuatio
             end
         end
 
+        % why e_z specifically?
         % calculate the length through current voxel
-        l = (((1+(e_z^2))*(a^2))^.5)*voxel_dim;
+        l = (((1+(e_z^2)) *(a^2)) ^.5) *voxel_dim;
         
         % get the attenuation coefficient
         if AttenuationMap(round(x),round(y),round(z)) > 0
