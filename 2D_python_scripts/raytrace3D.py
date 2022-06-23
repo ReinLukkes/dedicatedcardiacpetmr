@@ -81,8 +81,6 @@ class Detector:
         sinogram = np.zeros((self.number, self.number))
         
         for i in range(self.number):
-            if i%25 == 0:
-                print(i, '/', self.number)
             for j in range(self.number):
                 if i == j:
                     continue
@@ -102,8 +100,6 @@ class Detector:
 
 
         for i in range(self.number):
-            if i%25 == 0:
-                print(i, '/', self.number)
             for j in range(self.number):
                 if i == j:
                     continue
