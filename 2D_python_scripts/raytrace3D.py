@@ -48,11 +48,11 @@ class Detector:
             return self.ForwardProjection2()
             
         
-    def sbp(self, sinogram, output_size):
+    def sbp(self, sinogram):
         if self.detectorType == 0:
-            return self.BackProjection(sinogram, output_size)
+            return self.BackProjection(sinogram)
         if self.detectorType == 1:
-            return self.BackProjection2(sinogram, output_size)
+            return self.BackProjection2(sinogram)
 
     def setAttenuationMap(self, am):
         self.attenuationMap = am
@@ -78,37 +78,41 @@ class Detector:
     
     def ForwardProjection2(self):
         
-        trace_result = np.zeros((self.number, self.number))
+        sinogram = np.zeros((self.number, self.number))
         
         for i in range(self.number):
+            if i%25 == 0:
+                print(i, '/', self.number)
             for j in range(self.number):
                 if i == j:
                     continue
-                
-                trace_result[j, i] = self.RayTracing(j, i)
+                sinogram[j, i] = self.RayTracing(j, i)
                 
         # plt.figure()
-        # plt.imshow(trace_result, cmap='gray')
+        # plt.imshow(sinogram, cmap='gray')
         # plt.show()        
         
-        return trace_result
+        return sinogram
     
     def BackProjection2(self, sinogram):
-        dim = self.attenuationMap[0]
-        trace_result = np.zeros((dim, dim))
-        DensityMap = np.ones((dim, dim))
+        dim = self.attenuationMap.shape[0]
+        z = self.attenuationMap.shape[2]
+        trace_result = np.zeros((dim, dim, z))
+        DensityMap = np.ones((dim, dim, z))
 
 
         for i in range(self.number):
+            if i%25 == 0:
+                print(i, '/', self.number)
             for j in range(self.number):
                 if i == j:
                     continue
                 
                 trace_result, DensityMap = self.inverseRayTracing(
                     trace_result, 
+                    DensityMap, 
                     j, i, 
-                    sinogram[j, i], 
-                    DensityMap
+                    sinogram[j, i]
                     )
                 
         # plt.figure()
@@ -121,7 +125,7 @@ class Detector:
         
         trace_result = np.zeros((self.number, len(self.angles) ))
         
-        print(trace_result.shape[0])
+        #print(trace_result.shape[0])
         
         for j in range(self.number):
             
@@ -173,13 +177,9 @@ class Detector:
         startVoxel = self.detectorArray[j]
         endVoxel = self.detectorArray[i]
         rayVector = tuple(map(lambda k, l: k-l, endVoxel, startVoxel))      # get vector between the two voxels
-        print(rayVector)
         magnitude = np.sqrt(np.sum(list(map(lambda k: k**2, rayVector))))   # calculate the magnitude
         rayVector = tuple(map(lambda k: k/magnitude, rayVector))            # calculate the unit vector
         rayVector = tuple(map(lambda k: 1e-15 if k == 0 else k, rayVector))            # prevent dividing by zero
-
-        print(startVoxel)
-        print(endVoxel)
 
         mapDim = self.attenuationMap.shape
 
@@ -220,9 +220,8 @@ class Detector:
         inv_e_y = 1/rayVector[1]
         inv_e_z = 1/rayVector[2]
     
-        # print("Angle =", ThetaRay)
         #// compute line integral;
-        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]) and (iy < mapDim[0]) and (iz < mapDim[2]):
+        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)
@@ -280,7 +279,7 @@ class Detector:
             # LineIntegralWeight = LineIntegralWeight + l*ActivityMap(round(x),round(y),round(z));
     
             #// calculate line integral
-            LineIntegral += self.attenuationMap[iy,ix]*l 
+            LineIntegral += self.attenuationMap[iy,ix,iz]*l 
     
             #// update voxelcount and current position
             s_curr = s_next
@@ -298,7 +297,8 @@ class Detector:
         # return np.exp(-LineIntegral) 
     
     
-    def inverseRayTracing(self, ThetaRay, AttenuationMap, x, y, z, value, DensityMap):
+    def inverseRayTracing(self, AttenuationMap, DensityMap, j, i, sinogramVal):
+        
         # // Declare variables
         # double AttenuationCorrectionValue;			// voxel attenuation value ---> output value
         # int delta_ix;								// directional constants used in scan path
@@ -307,70 +307,55 @@ class Detector:
         delta_iy = 0
         delta_iz = 0
         
-        mapDim = AttenuationMap.shape
+        startVoxel = self.detectorArray[j]
+        endVoxel = self.detectorArray[i]
+        rayVector = tuple(map(lambda k, l: k-l, endVoxel, startVoxel))      # get vector between the two voxels
+        magnitude = np.sqrt(np.sum(list(map(lambda k: k**2, rayVector))))   # calculate the magnitude
+        rayVector = tuple(map(lambda k: k/magnitude, rayVector))            # calculate the unit vector
+        rayVector = tuple(map(lambda k: 1e-15 if k == 0 else k, rayVector))            # prevent dividing by zero
+
+        mapDim = self.attenuationMap.shape
+
         # // Initial values
-        # double s_curr = 0.0;						// current value of s (current position on path)
-        # double s_next = 0.0;						// next value of s (next position on path)
-        # double LineIntegral = 0.0;					// Line Integral value;
-        # double l = 0.0;								// length
-        
         s_curr = 0.0						#// current value of s (current position on path)
         s_next = 0.0						#// next value of s (next position on path)
         LineIntegral = 0.0					#// Line Integral value;
-        l = 0.0
+        l = 0.0        
         
         # TEMPORARY
         R_FOV = 1
         
         # % assuming isotropic voxels for calculation of path length (in cm)
-        # voxel_dim = R_FOV / (.5 * xdim);
+        # voxel_dim = R_FOV / (.5 * mapDim[1]);
         
-        voxel_dim = R_FOV / (.5 * mapDim[1])
+        voxel_dim = 1
         
-        # // compute unit directions of path
-        # % direction of ray in x,y,z directions
-        # e_x = cosd(phi);
-        # e_y = sind(phi);
-        # e_z = sind(theta);
-        
-        e_x = np.cos(ThetaRay)
-        e_y = np.sin(ThetaRay)
-        e_z = np.sin() #TODO: figure tis sh out
-           
-        #// prevent dividing by zero
-        if e_x == 0:
-        	e_x = 1e-15
-        if e_y == 0:
-        	e_y = 1e-15
-        if e_z == 0:
-        	e_z = 1e-15
-            
-        #// start voxel
-        ix = x
-        iy = y
-        iz = z
+        # set voxel to start
+        ix = startVoxel[0]
+        iy = startVoxel[1]
+        iz = startVoxel[2]
         
         #// directional constants used in scan path
-        delta_ix = 1 if e_x >= 0 else -1	# determine sign
+        delta_ix = 1 if rayVector[0] >= 0 else -1	# determine sign
         d_x = 0 if delta_ix < 0 else 1
-        delta_iy = 1 if e_y >= 0 else -1	# determine sign
+        delta_iy = 1 if rayVector[1] >= 0 else -1	# determine sign
         d_y = 0 if delta_iy < 0 else 1
-        delta_iz = 1 if e_z >= 0 else -1	# determine sign
+        delta_iz = 1 if rayVector[2] >= 0 else -1	# determine sign
         d_z = 0 if delta_iz < 0 else 1
         
- 
-           
         #// distance from start voxel
-        Dx = d_x-x
-        Dy = d_y-y
-        Dz = d_z-z
+        Dx = d_x-ix
+        Dy = d_y-iy
+        Dz = d_z-iz
+        
         #// prevent divisions inside inner loops, so pre-calculate
-        inv_e_x = 1/e_x
-        inv_e_y = 1/e_y
-        inv_e_z = 1/e_z
-        # print("Angle =", ThetaRay)
+        inv_e_x = 1/rayVector[0]
+        inv_e_y = 1/rayVector[1]
+        inv_e_z = 1/rayVector[2]
+        
+
         #// compute line integral;
-        while (ix > 0) and (iy > 0) and (ix < AttenuationMap.shape[1]-1) and (iy < AttenuationMap.shape[0]-1):
+        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)
@@ -378,6 +363,12 @@ class Detector:
             s_x = (ix+Dx)*inv_e_x		#//s_x is total path to x-intersection
             s_y = (iy+Dy)*inv_e_y		#//s_y is total path to y-intersection
             s_z = (iz+Dz)*inv_e_z		#//s_z is total path to z-intersection
+           
+            # % calculate distance to each voxel boundary
+            # a_x = abs((ix-x)*inv_e_x);
+            # a_y = abs((iy-y)*inv_e_y);
+            # a_z = abs((iz-z)*inv_e_z);
+            
             
             #// only the closest intersection is really encountered
             #// find this intersection and update voxel index for this direction
@@ -391,26 +382,39 @@ class Detector:
                	ix += delta_ix			#// x-index next voxel
                 if s_x == s_y: iy += delta_iy 
                 if s_x == s_z: iz += delta_iz
-
+           
             elif s_y <= s_x and s_y <= s_z:				#// intersection at y-boundary
                 s_next = s_y
                 iy += delta_iy			#// y-index next voxel
                 if s_y == s_z: iz += delta_iz
-
+           
             else: #s_z <= s_x and s_z <= s_y
                 s_next = s_z
                 iz += delta_iz
-    
-    
+           
+           
+           
+            #TODO: proper length through voxel calculation
+            
+            
             # % calculate the length through current voxel
             # l = (((1+(e_z^2))*(a^2))^.5)*voxel_dim;
-            #TODO // length through the voxel 
-            #l = (((1 + (e_z^2)) * (s_next^2)) ^ .5) * voxel_dim
-            l = (s_next-s_curr)
-    
+            l = np.sqrt( (1 + (rayVector[2]**2)) * (s_next**2) ) * voxel_dim
+           
+            # % get the attenuation coefficient
+            # if AttenuationMap(round(x),round(y),round(z)) > 0
+            #     tissue = AttenuationMap(round(x),round(y),round(z));
+            #     atn_coef = attenuation_table(energy_index,tissue);
+            # else
+            #     atn_coef = 0;
+            # end
+            
+            # LineIntegralAtt = LineIntegralAtt + l*atn_coef;
+            # LineIntegralWeight = LineIntegralWeight + l*ActivityMap(round(x),round(y),round(z));
+
             #// update the value of the pixel  
             
-            AttenuationMap[iy, ix] += value
+            AttenuationMap[iy, ix] += sinogramVal
             
             # add value to density map, is used to normalise the output image
             DensityMap[iy, ix] += densityMapStrength

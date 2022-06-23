@@ -20,7 +20,7 @@ import raytrace3D
 
 # Simulate measurement
 # This is done by makeing a forward projection and then adding noise
-def SimulateMeasurements(real, detector):
+def SimulateMeasurements(detector):
     measured = detector.sfp()
     measured = measured/np.max(measured)*100
     measured = np.random.poisson(measured)
@@ -48,21 +48,24 @@ def SimulateMeasurementsC(real, detector1, detector2):
 
 def mlemStep(guess, measured, norm_sum, detector):
     
+    # update the Attenuation Map to the guess volume
+    detector.setAttenuationMap(guess)
     # forward project guess volume
-    simulated = detector.sfp(guess)
+    simulated = detector.sfp()
     # prevent dividing by zero
     simulated[simulated == 0] = 1e-15
     # calculate error sinogram
     error_sin = measured/simulated
     # backproject to error volume
-    error_vol = detector.sbp(error_sin, N)
+    error_vol = detector.sbp(error_sin)
     # update guess volume
     guess = guess*error_vol
     # normalize guess volume
     guess = guess/np.sum(guess)*norm_sum
     
     plt.figure()
-    plt.imshow(guess, cmap='gray')
+    plt.imshow(guess[:,:,0], cmap='gray')
+    plt.imshow(guess[:,:,1], cmap='gray')
     plt.show()
     
     return guess
@@ -124,23 +127,27 @@ if __name__ == "__main__":
     
     # Import image
     real0 = imread("big_brain.png")[:,:,0]
+    real0 = np.stack([real0, real0], axis = 2)
     
     # Size of image
     N=real0.shape[0]
-    guess0 = np.ones([N,N])
-    guess1 = np.ones([N,N])
-    guess2 = np.ones([N,N]) 
-    guess3 = np.ones([N,N])  
+    guess0 = np.ones([N,N,2])
+    guess1 = np.ones([N,N,2])
+    guess2 = np.ones([N,N,2]) 
+    guess3 = np.ones([N,N,2])  
     
     # Nr of iterations used during reconstruction
-    iNrIterations = 1
+    iNrIterations = 4
     
     # define angles
     nr_angles = 3
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace3D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles), real0)
-    full = raytrace3D.Detector(220, 30, 1, np.arange(0, 360, 360/nr_angles), real0)   
+    
+    
+    # radius, number of cells in the detector, detector type, angles, attenuationMap, width = number, cellsize = 1
+    full = raytrace3D.Detector(220, 100, 1, np.arange(0, 360, 360/nr_angles), real0)   
 
     # Simulate measurement
     # This is done by makeing a forward projection and then adding noise
@@ -159,7 +166,7 @@ if __name__ == "__main__":
         measured1, norm_sum1 = SimulateMeasurements(real0, dedicated)
     
     if runFull or runCombined:
-        measured2, norm_sum2 = SimulateMeasurements(real0, full)
+        measured2, norm_sum2 = SimulateMeasurements(full)
     
     # if runCombined:
     #     measured3, norm_sum3 = SimulateMeasurementsC(real0, dedicated, full)
@@ -216,7 +223,8 @@ if __name__ == "__main__":
         recon2=guess2
         
         plt.figure()
-        plt.imshow(recon2,cmap='gray')
+        plt.imshow(recon2[:,:,0],cmap='gray')
+        plt.imshow(recon2[:,:,0],cmap='gray')
         plt.show()
         
     if runCombined:
