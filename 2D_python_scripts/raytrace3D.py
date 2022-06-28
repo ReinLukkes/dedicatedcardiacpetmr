@@ -84,10 +84,9 @@ class Detector:
             if i%25 == 0:
                 print(i, '/', self.number)
             for j in range(self.number):
-                if i == j:
+                if i==j or i + 0.7*self.number <= j or i + 0.3*self.number >= j:
                     continue
                 sinogram[j, i] = self.RayTracing(j, i)
-                
         # plt.figure()
         # plt.imshow(sinogram, cmap='gray')
         # plt.show()        
@@ -105,7 +104,7 @@ class Detector:
             if i%25 == 0:
                 print(i, '/', self.number)
             for j in range(self.number):
-                if i == j:
+                if i == j or i + 0.7*self.number <= j or i + 0.3*self.number >= j:
                     continue
                 
                 trace_result, DensityMap = self.inverseRayTracing(
@@ -221,7 +220,7 @@ class Detector:
         inv_e_z = 1/rayVector[2]
     
         #// compute line integral;
-        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1):
+        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1)):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)

@@ -147,7 +147,7 @@ if __name__ == "__main__":
     
     
     # radius, number of cells in the detector, detector type, angles, attenuationMap, width = number, cellsize = 1
-    full = raytrace3D.Detector(220, 100, 1, np.arange(0, 360, 360/nr_angles), real0)   
+    full = raytrace3D.Detector(220, 200, 1, np.arange(0, 360, 360/nr_angles), real0)   
 
     # Simulate measurement
     # This is done by makeing a forward projection and then adding noise
