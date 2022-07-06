@@ -137,10 +137,10 @@ if __name__ == "__main__":
     guess3 = np.ones([N,N,2])  
     
     # Nr of iterations used during reconstruction
-    iNrIterations = 4
+    iNrIterations = 1
     
     # define angles
-    nr_angles = 3
+    nr_angles = 10
     angles = np.arange(0, 360, 360/nr_angles)
     
     dedicated = raytrace3D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles), real0)
@@ -224,7 +224,10 @@ if __name__ == "__main__":
         
         plt.figure()
         plt.imshow(recon2[:,:,0],cmap='gray')
-        plt.imshow(recon2[:,:,0],cmap='gray')
+        plt.show()
+        
+        plt.figure()
+        plt.imshow(recon2[:,:,1],cmap='gray')
         plt.show()
         
     if runCombined:

@@ -64,14 +64,15 @@ class Detector:
         detector_array = []
         angles = np.arange(0, 2*np.pi, 2*np.pi/self.number)
         center = self.attenuationMap.shape[0]//2
-        
 
         for theta in angles:
             x0 = center + ( (np.cos(theta) * self.radius))
             y0 = center + ( (np.sin(theta) * self.radius))
+
             detector_array.append(
                 (int(np.round(x0)), int(np.round(y0)), 0)
                 )
+        
     
         return detector_array
     
@@ -220,7 +221,7 @@ class Detector:
         inv_e_z = 1/rayVector[2]
     
         #// compute line integral;
-        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1)):
+        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)
