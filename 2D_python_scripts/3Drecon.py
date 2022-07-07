@@ -143,11 +143,10 @@ if __name__ == "__main__":
     nr_angles = 10
     angles = np.arange(0, 360, 360/nr_angles)
     
-    dedicated = raytrace3D.Detector(100, 100, 0, np.arange(30, 150, 120/nr_angles), real0)
     
     
     # radius, number of cells in the detector, detector type, angles, attenuationMap, width = number, cellsize = 1
-    full = raytrace3D.Detector(220, 200, 1, np.arange(0, 360, 360/nr_angles), real0)   
+    full = raytrace3D.Detector(220, 200, real0)   
 
     # Simulate measurement
     # This is done by makeing a forward projection and then adding noise
@@ -162,8 +161,6 @@ if __name__ == "__main__":
         plt.imshow(measured0,cmap='gray')
         plt.show()
     
-    if runDedicated or runCombined:
-        measured1, norm_sum1 = SimulateMeasurements(real0, dedicated)
     
     if runFull or runCombined:
         measured2, norm_sum2 = SimulateMeasurements(full)
@@ -195,11 +192,6 @@ if __name__ == "__main__":
             guess2 = mlemStep(guess2, measured2, norm_sum2, full) 
 
     
-        if runDedicated:
-            guess1 = mlemStep(guess1, measured1, norm_sum1, dedicated)
-            
-        if runCombined:
-            guess3 = mlemStepC(guess3, measured1, measured2, norm_sum1 + norm_sum2, dedicated, full)
 
     
     

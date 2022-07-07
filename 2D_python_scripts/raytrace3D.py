@@ -8,7 +8,9 @@ Created on Thu Jun 16 13:52:41 2022
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-# import time
+import numba
+from numba.experimental import jitclass
+from numba import int32, uint8, typed, int8
 # // Routine:          RayTracing
 # // Function:        performs ray tracing to determine attenuation in FOV (not in collimator)
 # // Input:                               double& ray tracing angle, double attenuationmap[], int&voxel indices
@@ -17,68 +19,55 @@ import math
 # Value added to the density map on each pass through a pixel. Used to normalise results
 densityMapStrength = 0.1
 
+@jitclass(spec={"radius": int32, "number": int32, "attenuationMap": uint8[:,:,:], "detectorArray": int8[:,:]  } )
 class Detector:
     
-    def __init__(self, radius, number, detectorType, angles, attenuationMap, width = 0, cellSize = 1):
+    def __init__(self, radius, number, attenuationMap, detectorArray = np.zeros((2, 2), dtype=np.int8)):
         self.radius     = radius    # Distance of scanner from centre
         self.number     = number    # Number of cells in scanner
-        self.cellSize   = cellSize  # Size of cells in dedicated scanner
-        self.detectorType      = detectorType     # Detector type: 0 = dedicated, 1 = full
-        self.angles     = angles
         self.attenuationMap = attenuationMap
-        if width == 0:              # width of the partial detector array used for full
-            self.width = number
-        else:
-            self.width = width
-            
-        if detectorType != 0 and detectorType != 1:
-            print("error: detectorType invalid")
+
             
         if number <= 0:
             print("error: detector number too small")
+
+        self.detectorArray = self.CircleDetector()
             
-        if detectorType == 1:
-            self.detectorArray = self.CircleDetector()
             
-            
-    def sfp(self):  
-        if self.detectorType == 0:
+    def sfp(self):
             return self.ForwardProjection()
-        if self.detectorType == 1:
-            return self.ForwardProjection2()
             
         
     def sbp(self, sinogram):
-        if self.detectorType == 0:
             return self.BackProjection(sinogram)
-        if self.detectorType == 1:
-            return self.BackProjection2(sinogram)
 
     def setAttenuationMap(self, am):
         self.attenuationMap = am
         
-    __all__ = ['sfp', 'sbp', 'setAttenuationMap']
+    # __all__ = ['sfp', 'sbp', 'setAttenuationMap']
     
     def CircleDetector(self):
         
-        detector_array = []
+        detector_array = np.zeros((self.number, 3), dtype=np.int8)
         angles = np.arange(0, 2*np.pi, 2*np.pi/self.number)
         center = self.attenuationMap.shape[0]//2
 
-        for theta in angles:
-            x0 = center + ( (np.cos(theta) * self.radius))
-            y0 = center + ( (np.sin(theta) * self.radius))
+        for i in range(self.number):
+            x0 = center + ( (np.cos(angles[i]) * self.radius))
+            y0 = center + ( (np.sin(angles[i]) * self.radius))
 
-            detector_array.append(
-                (int(np.round(x0)), int(np.round(y0)), 0)
+            detector_array[i] = (
+                np.array([int(np.round(x0)), int(np.round(y0)), int(0)])
                 )
         
     
         return detector_array
     
     
-    def ForwardProjection2(self):
+    
+    def ForwardProjection(self):
         
+
         sinogram = np.zeros((self.number, self.number))
         
         for i in range(self.number):
@@ -91,10 +80,9 @@ class Detector:
         # plt.figure()
         # plt.imshow(sinogram, cmap='gray')
         # plt.show()        
-        
         return sinogram
     
-    def BackProjection2(self, sinogram):
+    def BackProjection(self, sinogram):
         dim = self.attenuationMap.shape[0]
         z = self.attenuationMap.shape[2]
         trace_result = np.zeros((dim, dim, z))
@@ -121,65 +109,32 @@ class Detector:
         
         return trace_result / DensityMap
     
-    def ForwardProjection(self, AttenuationMap):
-        
-        trace_result = np.zeros((self.number, len(self.angles) ))
-        
-        #print(trace_result.shape[0])
-        
-        for j in range(self.number):
-            
-            for i, angle in enumerate(np.deg2rad(self.angles)):
-                trace_result[j, i] = self.RayTracing(
-                    angle, 
-                    AttenuationMap, 
-                    AttenuationMap.shape[1]//2 - self.number//2*self.cellSize + j*self.cellSize, 
-                    AttenuationMap.shape[1]//2 - self.radius)
-        
-        # plt.figure()
-        # plt.imshow(trace_result, cmap='gray')
-        # plt.show()
-        
-        return trace_result
-        
-    def BackProjection(self, sinogram, output_size):
-        
-        trace_result = np.zeros((output_size, output_size))
-        DensityMap = np.ones((output_size, output_size))
-        
-        for j in range(self.number):
-            
-            for i, angle in enumerate(np.deg2rad(self.angles)):
-                trace_result, DensityMap = self.inverseRayTracing(
-                    angle, 
-                    trace_result, 
-                    output_size//2 - self.number//2*self.cellSize + j*self.cellSize, 
-                    output_size//2 - self.radius, 
-                    sinogram[j, i], 
-                    DensityMap)
-        
-        # plt.figure()
-        # plt.imshow(DensityMap, cmap='gray')
-        # plt.show()
-        
-        return trace_result / DensityMap    
-    
+   
     
     def RayTracing(self, j, i):
         # // Declare variables
         # double AttenuationCorrectionValue;			// voxel attenuation value ---> output value
         # int delta_ix;								// directional constants used in scan path
         # int delta_iy;								// directional constants used in scan path
+        mid = 256
+        rad = self.radius
+        
         delta_ix = 0
         delta_iy = 0
         delta_iz = 0
         
         startVoxel = self.detectorArray[j]
-        endVoxel = self.detectorArray[i]
-        rayVector = tuple(map(lambda k, l: k-l, endVoxel, startVoxel))      # get vector between the two voxels
-        magnitude = np.sqrt(np.sum(list(map(lambda k: k**2, rayVector))))   # calculate the magnitude
-        rayVector = tuple(map(lambda k: k/magnitude, rayVector))            # calculate the unit vector
-        rayVector = tuple(map(lambda k: 1e-15 if k == 0 else k, rayVector))            # prevent dividing by zero
+        endVoxel = self.detectorArray[i]        
+        rayVector = endVoxel - startVoxel
+        squared = [x**2 for x in rayVector]
+        magnitude = np.sqrt(np.sum(squared))
+        rayVector = [1e-15 if x == 0 else x/magnitude for x in rayVector]
+        
+        
+        # rayVector = tuple(map(lambda k, l: k-l, endVoxel, startVoxel))      # get vector between the two voxels
+        # magnitude = np.sqrt(np.sum(list(map(lambda k: k**2, rayVector))))   # calculate the magnitude
+        # rayVector = tuple(map(lambda k: k/magnitude, rayVector))            # calculate the unit vector
+        # rayVector = tuple(map(lambda k: 1e-15 if k == 0 else k, rayVector))            # prevent dividing by zero
 
         mapDim = self.attenuationMap.shape
 
@@ -221,7 +176,7 @@ class Detector:
         inv_e_z = 1/rayVector[2]
     
         #// compute line integral;
-        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1):
+        while (ix >= mid-rad) and (iy >= mid-rad) and (iz >= 0) and (ix < mid+rad) and (iy < mid+rad) and (iz < 1):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)
@@ -355,7 +310,7 @@ class Detector:
         
 
         #// compute line integral;
-        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < mapDim[1]-1) and (iy < mapDim[0]-1) and (iz < mapDim[2]-1):
+        while (ix >= 0) and (iy >= 0) and (iz >= 0) and (ix < 511) and (iy < 511) and (iz < 1):
             
             #// possible intersections of path with voxel boundary
             #// (x, y boundary)
